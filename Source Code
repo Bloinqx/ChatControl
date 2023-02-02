@@ -1,0 +1,121 @@
+# ============================== #
+#
+#   Chat Control v1.0 by Blinqx
+#
+# ============================== #
+
+options:
+# === Main Options ===
+	
+	# No Permission Message
+	permDenied: &8• &7You lack permission for that
+	# Permission Node Prefix
+	permPrefix: skript # permission node will begin with this, ex: "skript.broadcaster"
+	# Permission to allow player to bypass the filter
+	lockBypass: skript.chatLock.bypass
+	# Permission to exclude player from chat clear
+	clearBypass: skript.chatClear.bypass
+	# Permission to allow player to send links in chat
+	adBypass: skript.antiAd.bypass
+	
+	# Color Theme
+	aColor: &7 # Main text color
+	bColor: &b # Emphasis text color
+	cColor: &3 # Extra emphasis color numbers in broadcast list
+	
+	# Prefix that leads every message
+	chatPrefix: "&8[&bServer&8]"
+	
+	# Message shown to players when chat is locked/unlocked
+	chatLocked: %{-chatControl::prefix}% &7Chat has been &cLocked&7!
+	chatUnlocked: %{-chatControl::prefix}% &7Chat has been &bUnlocked&7!
+	# Message shown to players when they try to chat while chat is locked
+	chatLockedDenied: %{-chatControl::prefix}% &7Chat is currently &cLocked&7!
+	# Message shown to players when chat is cleared
+	chatCleared: %{-chatControl::prefix}% &7Chat has been cleared!
+	# Alternate between different length messages when clearing chat as to still effect players using an anti-spam mod
+	chatAlternate: true
+	
+	# Format of staff chat messages (Change to fit your server's chat format)
+	staffChatFormat: &8[&b&lStaff&8] &3%player%&7:&f # << The message will be added here, so any color code will apply to it
+	
+	# Anti-ad message when atttempting to ad
+	adDenied: %{-chatControl::prefix}% &7Please refrain from &cadvertising&7!
+	# Anti-ad notify message for staff
+	adNotifyMsg: %{-chatControl::prefix}% &b%player% &7may be advertising! &7Message: ""&3%message%&7""
+	# Permission to allow player to see when a player attempts to advertise
+	adNotifyPerm: skript.antiAd.notify
+	# Anti-ad rejected domains (More domains = longer skript reload time)
+	adDomains: ".net" or ".co" or ".us" or ".uk" or ".ws" or ".tk" or ".org" or ".to" or  ".192" or ".aternos" or ".me" or ".ly" or ".pl" or ".tv" or ".myserver" or ".club" or ".io" or ".ca" or ".host" or ".xyz" or ".is" or ".server" or ".gg" or ".eu"
+	
+	
+# === Actual Skript ===
+
+on load:
+	set {-chatControl::prefix} to {@chatPrefix}
+
+command /sc [<text>]:
+	permission: {@permPrefix}.chat.staff
+	permission message: {@permDenied}
+	trigger:
+		if arg-1 is not set:
+			if {chatControl::staffChat::%player%} is not set:
+				set {chatControl::staffChat::%player%} to true
+				send "%{-chatControl::prefix}% {@aColor}Staff chat {@bColor}Enabled"
+			else:
+				delete {chatControl::staffChat::%player%}
+				send "%{-chatControl::prefix}% {@aColor}Staff chat &cDisabled"
+		if arg-1 is set:
+			loop all players:
+				if loop-player has permission "{@permPrefix}.chat.staff":
+					send "{@staffChatFormat} %arg-1%" to loop-player
+				
+command /lc:
+	aliases: /lockchat, /chatlock
+	permission: {@permPrefix}.chat.lock
+	permission message: {@permDenied}
+	trigger:
+		if {chatControl::lockdown} is not set:
+			set {chatControl::lockdown} to true
+			broadcast ""
+			broadcast "{@chatLocked}"
+			broadcast ""				
+		else:
+			delete {chatControl::lockdown}
+			broadcast ""
+			broadcast "{@chatUnlocked}"
+			broadcast ""
+			
+command /chatclear:
+	aliases: /cc, /clearchat
+	permission: {@permPrefix}.chat.clear
+	permission message: {@permDenied}
+	trigger:
+		loop all players:
+			if loop-player doesn't have permission "{@clearBypass}":
+				if {@chatAlternate} is false:
+					loop 250 times:
+						send "" to loop-player
+				else:
+					loop 175 times:
+						send "" to loop-player
+						send "&7 " to loop-player
+			send "{@chatCleared}" to loop-player
+				
+on chat:
+	if message contains {@adDomains}:
+		if player doesn't have permission "{@adBypass}":
+			cancel event
+			send "{@adDenied}"
+			loop all players:
+				if loop-player has permission "{@adNotifyPerm}":
+					send "{@adNotifyMsg}" to loop-player
+	else if {chatControl::lockdown} is true:
+		if player doesn't have permission "{@lockBypass}":
+			cancel event
+			send "{@chatLockedDenied}"
+	if {chatControl::staffChat::%player%} is set:
+		cancel event
+		loop all players:
+			if loop-player has permission "{@permPrefix}.chat.staff":
+				send "{@staffChatFormat} %message%" to loop-player
